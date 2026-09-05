@@ -1,0 +1,29 @@
+# Environment / secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Build output
+dist/
+build/
+
+# Backups
+backups/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Render/Discloud config (optional to commit; if you prefer to keep local, uncomment)
+# discloud.config
