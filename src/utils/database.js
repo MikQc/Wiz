@@ -364,6 +364,15 @@ function normalizeWelcomeConfig(raw = {}) {
 
     const roleIds = Array.isArray(base.roleIds) ? base.roleIds : [];
 
+    const joinPing = typeof base.joinPing === "object" && base.joinPing !== null
+        ? {
+            ...base.joinPing,
+            enabled: Boolean(base.joinPing.enabled),
+            channelId: base.joinPing.channelId ?? null,
+            deleteAfterMs: Number(base.joinPing.deleteAfterMs ?? 60000),
+        }
+        : { enabled: false, channelId: null, message: "", deleteAfterMs: 60000 };
+
     return {
         ...base,
         enabled: Boolean(base.enabled),
@@ -381,7 +390,8 @@ function normalizeWelcomeConfig(raw = {}) {
         roleIds,
         autoRoleDelay: base.autoRoleDelay ?? 0,
         joinLogs: base.joinLogs ?? { enabled: false, channelId: null },
-        leaveLogs: base.leaveLogs ?? { enabled: false, channelId: null }
+        leaveLogs: base.leaveLogs ?? { enabled: false, channelId: null },
+        joinPing
     };
 }
 

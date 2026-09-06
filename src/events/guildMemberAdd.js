@@ -22,6 +22,10 @@ export default {
         
         const welcomeChannelId = welcomeConfig?.channelId;
 
+        if (welcomeConfig?.joinPing?.enabled && welcomeConfig.joinPing.channelId) {
+            await handleJoinPing(member, guild, welcomeConfig.joinPing);
+        }
+
         if (welcomeConfig?.enabled && welcomeChannelId) {
             const channel = guild.channels.cache.get(welcomeChannelId);
             const me = guild.members.me;
@@ -186,6 +190,49 @@ async function handleVerification(member, guild, verificationConfig, client) {
             userTag: member.user.tag,
             error: error.message
         });
+    }
+}
+
+async function handleJoinPing(member, guild, joinPingConfig) {
+    try {
+        const channel = guild.channels.cache.get(joinPingConfig.channelId);
+        const me = guild.members.me;
+        const permissions = channel?.isTextBased?.() && me ? channel.permissionsFor(me) : null;
+        if (!permissions?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages])) {
+            logger.warn('JoinPing skipped in guild:', {
+                guildId: guild.id,
+                reason: 'missing permissions on channel ' + joinPingConfig.channelId
+            });
+            return;
+        }
+
+        const messageText = (joinPingConfig.message || '').trim()
+            || `Welcome {user} to {server}! Please head to <#${channel.id}> to complete verification.`;
+
+        const content = formatWelcomeMessage(messageText, { user, guild, channel });
+
+        const dieAfterMs = Math.max(5000, Number(joinPingConfig.deleteAfterMs || 60000));
+
+        const sent = await channel.send({ content });
+        logger.info('JoinPing sent', {
+            guildId: guild.id,
+            userId: user.id,
+            channelId: channel.id,
+            deleteAfterMs: dieAfterMs
+        });
+
+        const timeout = setTimeout(async () => {
+            try {
+                await sent.delete();
+            } catch (error) {
+                logger.debug('JoinPing message already gone or cannot delete:', error.message);
+            }
+        }, dieAfterMs);
+        if (typeof timeout.unref === 'function') {
+            timeout.unref();
+        }
+    } catch (error) {
+        logger.error('Error in handleJoinPing:', error);
     }
 }
 

@@ -30,6 +30,7 @@ export function formatWelcomeMessage(message, data) {
 
     const user = data?.user;
     const guild = data?.guild;
+    const channel = data?.channel;
 
     if (!user || typeof user !== 'object') {
         logger.warn('Invalid user object passed to formatWelcomeMessage');
@@ -46,6 +47,7 @@ export function formatWelcomeMessage(message, data) {
         '{username}': user?.username || 'Unknown',
         '{user.discriminator}': user?.discriminator || '0000',
         '{user.id}': user?.id || 'unknown',
+        '{channel}': channel?.toString?.() || 'this channel',
         '{server}': guild?.name || 'Server',
         '{server.name}': guild?.name || 'Server',
         '{guild.name}': guild?.name || 'Server',
