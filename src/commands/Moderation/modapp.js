@@ -1,68 +1,89 @@
 import { getColor } from '../../config/bot.js';
-import { SlashCommandBuilder, PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { getGuildConfig, updateGuildConfig } from '../../services/config/guildConfig.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
-import { logEvent, EVENT_TYPES, resolveApplicationLogChannel } from '../../services/loggingService.js';
+import { ErrorTypes, replyUserError, handleInteractionError } from '../../utils/errorHandler.js';
+import { logEvent, EVENT_TYPES } from '../../services/loggingService.js';
 import { formatLogLine } from '../../utils/logging/logEmbeds.js';
 
 const MOD_APPLICATION_KEY = 'modApplication';
 
 const DEFAULT_QUESTIONS = [
     'How old are you?',
-    'Do you have any moderation experience? (other servers, forums, etc.)',
+    'Do you have any moderation experience?',
     'Why do you want to become a moderator here?',
-    'How much time can you give per week? What is your timezone?',
+    'How much time can you give per week?',
 ];
+
+const MAX_QUESTIONS = 5;
+const QUESTION_SEPARATOR = '|';
 
 function normalizeModApplication(raw) {
     return {
         enabled: Boolean(raw?.enabled),
         channelId: raw?.channelId ?? null,
+        panelMessageId: raw?.panelMessageId ?? null,
         questions: Array.isArray(raw?.questions) && raw.questions.length > 0
-            ? raw.questions.map(String).slice(0, 5)
+            ? raw.questions.map(String).slice(0, MAX_QUESTIONS)
             : DEFAULT_QUESTIONS,
     };
 }
 
-function buildConfigEmbed(guild, cfg) {
+function parseQuestionsInput(raw) {
+    if (!raw || !String(raw).trim()) return null;
+    const questions = String(raw)
+        .split(QUESTION_SEPARATOR)
+        .map((q) => q.trim())
+        .filter(Boolean)
+        .slice(0, MAX_QUESTIONS);
+    return questions.length > 0 ? questions : null;
+}
+
+function buildQuestionsDisplay(questions) {
+    return questions
+        .map((q, i) => `**${i + 1}.** ${q}`)
+        .join('\n\n');
+}
+
+function buildPanelEmbed(guild, cfg) {
     return new EmbedBuilder()
-        .setColor(getColor(cfg.enabled ? 'success' : 'primary'))
-        .setTitle('Moderator Application')
-        .addFields(
-            { name: 'Status', value: cfg.enabled ? '✅ **Enabled**' : '❌ **Disabled**', inline: true },
-            { name: 'Submission Channel', value: cfg.channelId ? `<#${cfg.channelId}>` : '`Not set`', inline: true },
-            { name: 'Questions', value: `${cfg.questions.length} question(s)` },
+        .setColor(getColor('primary'))
+        .setTitle('📋 Moderator Application')
+        .setDescription(
+            `We are looking for moderators for **${guild.name}**.\n\n` +
+            `Click **Apply** below to answer the questions. Our team will review your answers.\n\n` +
+            buildQuestionsDisplay(cfg.questions)
         )
-        .setFooter({ text: 'Use /modapp setup to configure, /modapp submit to apply.' });
+        .setFooter({ text: 'Your answers are sent to the moderation team.' })
+        .setTimestamp();
 }
 
 export default {
     data: new SlashCommandBuilder()
         .setName('modapp')
-        .setDescription('Moderator application system')
+        .setDescription('Moderator application panel')
         .addSubcommand(subcommand =>
             subcommand
                 .setName('setup')
-                .setDescription('Set the channel where applications are received')
+                .setDescription('Create the application panel in a channel')
                 .addChannelOption(option =>
                     option.setName('channel')
-                        .setDescription('Channel to receive moderator applications')
+                        .setDescription('Channel to show the application panel in')
                         .addChannelTypes(ChannelType.GuildText)
-                        .setRequired(true)))
+                        .setRequired(true))
+                .addStringOption(option =>
+                    option.setName('questions')
+                        .setDescription(`Questions separated by "${QUESTION_SEPARATOR}" (max ${MAX_QUESTIONS})`)
+                        .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('disable')
-                .setDescription('Disable the moderator application system'))
+                .setDescription('Remove the application panel and disable the system'))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('status')
-                .setDescription('Show the moderator application configuration'))
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('submit')
-                .setDescription('Submit a moderator application')),
+                .setDescription('Show the moderator application configuration')),
 
     async execute(interaction) {
         const deferSuccess = await InteractionHelper.safeDefer(interaction);
@@ -85,6 +106,11 @@ export default {
             }
 
             const channel = options.getChannel('channel');
+            const questionsOption = options.getString('questions');
+
+            const existing = normalizeModApplication((await getGuildConfig(client, guild.id))?.[MOD_APPLICATION_KEY]);
+            const questions = parseQuestionsInput(questionsOption) ?? existing.questions;
+
             const me = guild.members.me;
             const perms = channel.permissionsFor(me);
             if (!perms?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])) {
@@ -92,28 +118,56 @@ export default {
             }
 
             try {
-                const current = await getGuildConfig(client, guild.id);
-                const cfg = normalizeModApplication(current?.[MOD_APPLICATION_KEY]);
+                const applyButton = new ButtonBuilder()
+                    .setCustomId('modapp_apply')
+                    .setLabel('Apply')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('📝');
+
+                const row = new ActionRowBuilder().addComponents(applyButton);
+
+                const panelMessage = await channel.send({
+                    embeds: [buildPanelEmbed(guild, { ...existing, questions, enabled: true })],
+                    components: [row],
+                });
+
+                if (existing.panelMessageId) {
+                    try {
+                        const oldChannel = guild.channels.cache.get(existing.channelId);
+                        const oldMessage = oldChannel?.messages.cache.get(existing.panelMessageId)
+                            || (oldChannel ? await oldChannel.messages.fetch(existing.panelMessageId).catch(() => null) : null);
+                        if (oldMessage) {
+                            await oldMessage.delete().catch(() => {});
+                        }
+                    } catch (error) {
+                        logger.debug('ModApp: could not delete old panel message:', error.message);
+                    }
+                }
+
                 await updateGuildConfig(client, guild.id, {
                     [MOD_APPLICATION_KEY]: {
-                        ...cfg,
                         enabled: true,
                         channelId: channel.id,
+                        panelMessageId: panelMessage.id,
+                        questions,
                     }
                 });
 
-                logger.info(`[ModApp] Setup by ${interaction.user.tag} for guild ${guild.name} (${guild.id})`);
+                logger.info(`[ModApp] Panel created by ${interaction.user.tag} for guild ${guild.name} (${guild.id})`);
 
                 const embed = new EmbedBuilder()
                     .setColor(getColor('success'))
-                    .setTitle('Moderator Application Configured')
-                    .setDescription(`Applications will now be received in ${channel}\nMembers apply with \`/modapp submit\`.`)
-                    .addFields({ name: 'Questions', value: `${cfg.questions.length} question(s)` });
+                    .setTitle('Moderator Application Panel Created')
+                    .setDescription(`The application panel is now visible in ${channel}.`)
+                    .addFields(
+                        { name: 'Questions', value: `${questions.length} question(s)`, inline: true },
+                        { name: 'Status', value: '✅ Enabled', inline: true },
+                    );
 
                 await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
             } catch (error) {
                 logger.error(`[ModApp] Setup failed for guild ${guild.id}:`, error);
-                await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while configuring the application system.' });
+                await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while creating the application panel.' });
             }
             return;
         }
@@ -124,16 +178,27 @@ export default {
             }
 
             try {
-                const current = await getGuildConfig(client, guild.id);
-                const cfg = normalizeModApplication(current?.[MOD_APPLICATION_KEY]);
+                const existing = normalizeModApplication((await getGuildConfig(client, guild.id))?.[MOD_APPLICATION_KEY]);
+
+                if (existing.channelId && existing.panelMessageId) {
+                    const channel = guild.channels.cache.get(existing.channelId);
+                    const message = channel
+                        ? (channel.messages.cache.get(existing.panelMessageId)
+                            || await channel.messages.fetch(existing.panelMessageId).catch(() => null))
+                        : null;
+                    if (message) {
+                        await message.delete().catch(() => {});
+                    }
+                }
+
                 await updateGuildConfig(client, guild.id, {
-                    [MOD_APPLICATION_KEY]: { ...cfg, enabled: false }
+                    [MOD_APPLICATION_KEY]: { ...existing, enabled: false, channelId: null, panelMessageId: null }
                 });
 
                 const embed = new EmbedBuilder()
                     .setColor(getColor('error'))
                     .setTitle('Moderator Application Disabled')
-                    .setDescription('Members can no longer submit moderator applications.');
+                    .setDescription('The application panel was removed.');
 
                 await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
             } catch (error) {
@@ -145,36 +210,61 @@ export default {
 
         if (subcommand === 'status') {
             const cfg = normalizeModApplication((await getGuildConfig(client, guild.id))?.[MOD_APPLICATION_KEY]);
-            await InteractionHelper.safeEditReply(interaction, { embeds: [buildConfigEmbed(guild, cfg)] });
-            return;
-        }
 
-        if (subcommand === 'submit') {
-            const cfg = normalizeModApplication((await getGuildConfig(client, guild.id))?.[MOD_APPLICATION_KEY]);
+            const embed = new EmbedBuilder()
+                .setColor(getColor(cfg.enabled ? 'success' : 'primary'))
+                .setTitle('Moderator Application Status')
+                .addFields(
+                    { name: 'Status', value: cfg.enabled ? '✅ **Enabled**' : '❌ **Disabled**', inline: true },
+                    { name: 'Channel', value: cfg.channelId ? `<#${cfg.channelId}>` : '`Not set`', inline: true },
+                );
 
-            if (!cfg.enabled || !cfg.channelId) {
-                return await replyUserError(interaction, { type: ErrorTypes.CONFIGURATION, message: 'Moderator applications are not open right now.' });
+            if (cfg.enabled && cfg.questions.length > 0) {
+                embed.addFields({ name: 'Questions', value: buildQuestionsDisplay(cfg.questions).substring(0, 1024) });
             }
 
-            const modal = new ModalBuilder()
-                .setCustomId('modapp_modal')
-                .setTitle('Moderator Application');
+            embed.setFooter({ text: 'Use /modapp setup to reconfigure the panel.' });
 
-            cfg.questions.forEach((question, index) => {
-                const input = new TextInputBuilder()
-                    .setCustomId(`q${index}`)
-                    .setLabel(question.length > 45 ? `${question.substring(0, 42)}...` : question)
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setRequired(true)
-                    .setMaxLength(1000);
-
-                modal.addComponents(new ActionRowBuilder().addComponents(input));
-            });
-
-            await interaction.showModal(modal);
+            await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
         }
     },
 };
+
+export async function handleModAppButton(interaction, client) {
+    try {
+        await InteractionHelper.safeDefer(interaction, { ephemeral: true });
+
+        if (!interaction.guild) {
+            return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'This button can only be used in a server.' });
+        }
+
+        const cfg = normalizeModApplication((await getGuildConfig(client, interaction.guild.id))?.[MOD_APPLICATION_KEY]);
+
+        if (!cfg.enabled) {
+            return await replyUserError(interaction, { type: ErrorTypes.CONFIGURATION, message: 'Moderator applications are not open right now.' });
+        }
+
+        const modal = new ModalBuilder()
+            .setCustomId('modapp_modal')
+            .setTitle('Moderator Application');
+
+        cfg.questions.forEach((question, index) => {
+            const input = new TextInputBuilder()
+                .setCustomId(`q${index}`)
+                .setLabel(question.length > 45 ? `${question.substring(0, 42)}...` : question)
+                .setStyle(TextInputStyle.Paragraph)
+                .setRequired(true)
+                .setMaxLength(1000);
+
+            modal.addComponents(new ActionRowBuilder().addComponents(input));
+        });
+
+        await interaction.showModal(modal);
+    } catch (error) {
+        logger.error('ModApp: button handler error:', error);
+        await handleInteractionError(interaction, error, { command: 'modapp_apply', action: 'open_modal' });
+    }
+}
 
 export async function handleModAppModal(interaction) {
     if (!interaction.isModalSubmit() || interaction.customId !== 'modapp_modal') return;
@@ -202,7 +292,6 @@ export async function handleModAppModal(interaction) {
         .setTitle('New Moderator Application')
         .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
         .setDescription(`**Applicant:** ${user.toString()} (\`${user.id}\`)\n**Submitted:** <t:${Math.floor(Date.now() / 1000)}:R>`)
-        .setFooter({ text: 'Review the answers above.' })
         .setTimestamp();
 
     answers.forEach(({ question, answer }, index) => {
@@ -215,9 +304,9 @@ export async function handleModAppModal(interaction) {
         const confirmation = new EmbedBuilder()
             .setColor(getColor('success'))
             .setTitle('Application Submitted')
-            .setDescription(`Your application has been sent to the team. We will get back to you soon!\n\n**Please do not message staff about your application.**`);
+            .setDescription('Your application has been sent to the team. We will get back to you soon!');
 
-        await InteractionHelper.safeEditReply(interaction, { embeds: [confirmation], flags: ['Ephemeral'] });
+        await InteractionHelper.safeEditReply(interaction, { embeds: [confirmation], ephemeral: true });
     } catch (error) {
         logger.error('ModApp: failed to send application:', error);
         await replyUserError(interaction, { type: ErrorTypes.INTERNAL, message: 'Your application could not be sent. Please try again later.' });
