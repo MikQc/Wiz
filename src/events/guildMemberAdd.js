@@ -195,7 +195,18 @@ async function handleVerification(member, guild, verificationConfig, client) {
 
 async function handleJoinPing(member, guild, joinPingConfig) {
     try {
-        const channel = guild.channels.cache.get(joinPingConfig.channelId);
+        let channel = guild.channels.cache.get(joinPingConfig.channelId);
+        if (!channel?.isTextBased?.()) {
+            channel = await guild.channels.fetch(joinPingConfig.channelId).catch(() => null);
+        }
+        if (!channel?.isTextBased?.()) {
+            logger.warn('JoinPing skipped in guild:', {
+                guildId: guild.id,
+                reason: 'channel not found ' + joinPingConfig.channelId
+            });
+            return;
+        }
+
         const me = guild.members.me;
         const permissions = channel?.isTextBased?.() && me ? channel.permissionsFor(me) : null;
         if (!permissions?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages])) {
