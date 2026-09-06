@@ -18,12 +18,16 @@ const DEFAULT_QUESTIONS = [
 
 const MAX_QUESTIONS = 5;
 const QUESTION_SEPARATOR = '|';
+const DEFAULT_LINK_LABEL = 'Apply here';
 
 function normalizeModApplication(raw) {
     return {
         enabled: Boolean(raw?.enabled),
         channelId: raw?.channelId ?? null,
+        responsesChannelId: raw?.responsesChannelId ?? raw?.channelId ?? null,
         panelMessageId: raw?.panelMessageId ?? null,
+        linkUrl: raw?.linkUrl ?? null,
+        linkLabel: raw?.linkLabel ?? DEFAULT_LINK_LABEL,
         questions: Array.isArray(raw?.questions) && raw.questions.length > 0
             ? raw.questions.map(String).slice(0, MAX_QUESTIONS)
             : DEFAULT_QUESTIONS,
@@ -40,6 +44,15 @@ function parseQuestionsInput(raw) {
     return questions.length > 0 ? questions : null;
 }
 
+function isValidUrl(raw) {
+    try {
+        const parsed = new URL(String(raw));
+        return ['http:', 'https:'].includes(parsed.protocol);
+    } catch {
+        return false;
+    }
+}
+
 function buildQuestionsDisplay(questions) {
     return questions
         .map((q, i) => `**${i + 1}.** ${q}`)
@@ -47,16 +60,26 @@ function buildQuestionsDisplay(questions) {
 }
 
 function buildPanelEmbed(guild, cfg) {
-    return new EmbedBuilder()
+    const { linkUrl, linkLabel } = cfg;
+
+    const embed = new EmbedBuilder()
         .setColor(getColor('primary'))
         .setTitle('📋 Moderator Application')
         .setDescription(
             `We are looking for moderators for **${guild.name}**.\n\n` +
-            `Click **Apply** below to answer the questions. Our team will review your answers.\n\n` +
+            (linkUrl
+                ? `### 🔗 ${linkLabel}\nClick the link below or press **Apply** to submit your application.\n\n`
+                : `Click **Apply** below to answer the questions. Our team will review your answers.\n\n`) +
             buildQuestionsDisplay(cfg.questions)
         )
-        .setFooter({ text: 'Your answers are sent to the moderation team.' })
+        .setFooter({ text: 'Your answers are reviewed by the moderation team.' })
         .setTimestamp();
+
+    if (linkUrl) {
+        embed.addFields({ name: 'Another way to apply', value: `${linkLabel}: ${linkUrl}` });
+    }
+
+    return embed;
 }
 
 export default {
@@ -72,6 +95,19 @@ export default {
                         .setDescription('Channel to show the application panel in')
                         .addChannelTypes(ChannelType.GuildText)
                         .setRequired(true))
+                .addChannelOption(option =>
+                    option.setName('responses')
+                        .setDescription('Channel where submitted applications are received')
+                        .addChannelTypes(ChannelType.GuildText)
+                        .setRequired(false))
+                .addStringOption(option =>
+                    option.setName('link')
+                        .setDescription('Optional external link to show in the panel (e.g. Google Form)')
+                        .setRequired(false))
+                .addStringOption(option =>
+                    option.setName('link_label')
+                        .setDescription(`Text shown for the external link (default: "${DEFAULT_LINK_LABEL}")`)
+                        .setRequired(false))
                 .addStringOption(option =>
                     option.setName('questions')
                         .setDescription(`Questions separated by "${QUESTION_SEPARATOR}" (max ${MAX_QUESTIONS})`)
@@ -106,15 +142,29 @@ export default {
             }
 
             const channel = options.getChannel('channel');
+            const responsesChannel = options.getChannel('responses') ?? channel;
             const questionsOption = options.getString('questions');
+            const linkOpt = options.getString('link');
+            const linkLabelOpt = options.getString('link_label');
+
+            if (linkOpt && !isValidUrl(linkOpt)) {
+                return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'The link must be a valid **http://** or **https://** URL.' });
+            }
 
             const existing = normalizeModApplication((await getGuildConfig(client, guild.id))?.[MOD_APPLICATION_KEY]);
             const questions = parseQuestionsInput(questionsOption) ?? existing.questions;
+            const linkUrl = linkOpt ?? existing.linkUrl ?? null;
+            const linkLabel = linkLabelOpt ?? existing.linkLabel ?? DEFAULT_LINK_LABEL;
 
             const me = guild.members.me;
-            const perms = channel.permissionsFor(me);
-            if (!perms?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])) {
+            const panelPerms = channel.permissionsFor(me);
+            if (!panelPerms?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])) {
                 return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: `I need **View Channel**, **Send Messages** and **Embed Links** permissions in ${channel}.` });
+            }
+
+            const responsesPerms = responsesChannel.permissionsFor(me);
+            if (!responsesPerms?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])) {
+                return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: `I need **View Channel**, **Send Messages** and **Embed Links** permissions in ${responsesChannel}.` });
             }
 
             try {
@@ -124,10 +174,21 @@ export default {
                     .setStyle(ButtonStyle.Primary)
                     .setEmoji('📝');
 
-                const row = new ActionRowBuilder().addComponents(applyButton);
+                const rowComponents = [applyButton];
+
+                if (linkUrl) {
+                    rowComponents.push(
+                        new ButtonBuilder()
+                            .setLabel(linkLabel.length > 80 ? linkLabel.substring(0, 77) + '…' : linkLabel)
+                            .setStyle(ButtonStyle.Link)
+                            .setURL(linkUrl)
+                    );
+                }
+
+                const row = new ActionRowBuilder().addComponents(rowComponents);
 
                 const panelMessage = await channel.send({
-                    embeds: [buildPanelEmbed(guild, { ...existing, questions, enabled: true })],
+                    embeds: [buildPanelEmbed(guild, { ...existing, questions, enabled: true, linkUrl, linkLabel })],
                     components: [row],
                 });
 
@@ -148,7 +209,10 @@ export default {
                     [MOD_APPLICATION_KEY]: {
                         enabled: true,
                         channelId: channel.id,
+                        responsesChannelId: responsesChannel.id,
                         panelMessageId: panelMessage.id,
+                        linkUrl,
+                        linkLabel,
                         questions,
                     }
                 });
@@ -160,7 +224,10 @@ export default {
                     .setTitle('Moderator Application Panel Created')
                     .setDescription(`The application panel is now visible in ${channel}.`)
                     .addFields(
+                        { name: 'Panel Channel', value: `${channel.toString()}`, inline: true },
+                        { name: 'Responses Channel', value: `${responsesChannel.toString()}`, inline: true },
                         { name: 'Questions', value: `${questions.length} question(s)`, inline: true },
+                        { name: 'External Link', value: linkUrl ? `${linkLabel}: ${linkUrl}` : '`None`', inline: false },
                         { name: 'Status', value: '✅ Enabled', inline: true },
                     );
 
@@ -192,7 +259,7 @@ export default {
                 }
 
                 await updateGuildConfig(client, guild.id, {
-                    [MOD_APPLICATION_KEY]: { ...existing, enabled: false, channelId: null, panelMessageId: null }
+                    [MOD_APPLICATION_KEY]: { ...existing, enabled: false, channelId: null, responsesChannelId: null, panelMessageId: null }
                 });
 
                 const embed = new EmbedBuilder()
@@ -216,8 +283,13 @@ export default {
                 .setTitle('Moderator Application Status')
                 .addFields(
                     { name: 'Status', value: cfg.enabled ? '✅ **Enabled**' : '❌ **Disabled**', inline: true },
-                    { name: 'Channel', value: cfg.channelId ? `<#${cfg.channelId}>` : '`Not set`', inline: true },
+                    { name: 'Panel Channel', value: cfg.channelId ? `<#${cfg.channelId}>` : '`Not set`', inline: true },
+                    { name: 'Responses Channel', value: cfg.responsesChannelId ? `<#${cfg.responsesChannelId}>` : '`Not set`', inline: true },
                 );
+
+            if (cfg.linkUrl) {
+                embed.addFields({ name: 'External Link', value: `${cfg.linkLabel}: ${cfg.linkUrl}` });
+            }
 
             if (cfg.enabled && cfg.questions.length > 0) {
                 embed.addFields({ name: 'Questions', value: buildQuestionsDisplay(cfg.questions).substring(0, 1024) });
@@ -273,13 +345,14 @@ export async function handleModAppModal(interaction) {
 
     const cfg = normalizeModApplication((await getGuildConfig(client, guild.id))?.[MOD_APPLICATION_KEY]);
 
-    if (!cfg.enabled || !cfg.channelId) {
+    if (!cfg.enabled || !cfg.responsesChannelId) {
         return await replyUserError(interaction, { type: ErrorTypes.CONFIGURATION, message: 'Moderator applications are not open right now.' });
     }
 
-    const channel = guild.channels.cache.get(cfg.channelId);
+    const channel = guild.channels.cache.get(cfg.responsesChannelId)
+        || await guild.channels.fetch(cfg.responsesChannelId).catch(() => null);
     if (!channel?.isTextBased()) {
-        return await replyUserError(interaction, { type: ErrorTypes.CONFIGURATION, message: 'The configured application channel no longer exists.' });
+        return await replyUserError(interaction, { type: ErrorTypes.CONFIGURATION, message: 'The configured application response channel no longer exists.' });
     }
 
     const answers = cfg.questions.map((question, index) => ({
@@ -321,7 +394,7 @@ export async function handleModAppModal(interaction) {
                 title: 'Moderator Application Submitted',
                 lines: [
                     formatLogLine('Applicant', `${user.toString()} (${user.tag})`),
-                    formatLogLine('Channel', `<#${cfg.channelId}>`),
+                    formatLogLine('Channel', `<#${cfg.responsesChannelId}>`),
                 ],
                 author: user.displayAvatarURL(),
             },
