@@ -43,6 +43,11 @@ export const DEFAULT_GUILD_CONFIG = {
         enabled: false,
         channelId: null,
         questions: []
+    },
+    rolePanel: {
+        enabled: false,
+        channelId: null,
+        messageId: null
     }
 };
 

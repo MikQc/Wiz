@@ -1,5 +1,6 @@
 import { Events } from 'discord.js';
 import { logEvent, EVENT_TYPES } from '../services/loggingService.js';
+import { updateRolePanel } from '../commands/Community/roles.js';
 import { logger } from '../utils/logger.js';
 import { buildRoleAuditLines } from '../utils/logging/logEmbeds.js';
 
@@ -22,6 +23,10 @@ export default {
           headline: `${role.toString()} was created`,
           lines,
         },
+      });
+
+      await updateRolePanel(role.client, role.guild).catch((error) => {
+        logger.debug('RolePanel: update on role create failed:', error.message);
       });
 
     } catch (error) {
