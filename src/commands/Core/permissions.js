@@ -142,9 +142,9 @@ export default {
             } else {
                 manageServerRoles.forEach(({ role, isEveryone }) => {
                     const memberCount = isEveryone ? guild.memberCount : countRoleMembers(guild, role.id);
-                    const everyoneNote = isEveryone ? ' — ⚠️ @everyone' : '';
+                    const everyoneNote = isEveryone ? ' — ⚠️ @everyone' : ` (\`${role.id}\`)`;
                     embed.addFields({
-                        name: `${role.toString()}${everyoneNote}`,
+                        name: `@${role.name}${everyoneNote}`,
                         value: isEveryone
                             ? `**${guild.memberCount}** members — this means EVERYONE has Manage Server!`
                             : `**${memberCount}+** member(s) with this role`,
@@ -156,7 +156,7 @@ export default {
 
             if (adminRoles.length > 0) {
                 const adminList = adminRoles
-                    .map(r => r.toString())
+                    .map(r => `@${r.name}`)
                     .join(', ');
                 embed.addFields({ name: '✅ Administrator roles', value: adminList });
             }
