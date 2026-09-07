@@ -9,7 +9,6 @@ import {
 } from '../config/bot.js';
 import botConfig from '../config/bot.js';
 import { handleApplicationModal } from '../commands/Community/apply.js';
-import { handleModAppModal } from '../commands/Moderation/modapp.js';
 import { handleInteractionError, createError, ErrorTypes, ErrorCodes } from '../utils/errorHandler.js';
 import { InteractionHelper } from '../utils/interactionHelper.js';
 import { createInteractionTraceContext, runWithTraceContext } from '../utils/logger.js';
@@ -394,19 +393,6 @@ export default {
                 type: 'modal',
                 customId: interaction.customId,
                 handler: 'application'
-              }, interactionTraceContext));
-            }
-            return;
-          }
-
-          if (interaction.customId === 'modapp_modal') {
-            try {
-              await handleModAppModal(interaction);
-            } catch (error) {
-              await handleInteractionError(interaction, error, withTraceContext({
-                type: 'modal',
-                customId: interaction.customId,
-                handler: 'mod_app'
               }, interactionTraceContext));
             }
             return;

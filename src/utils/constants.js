@@ -39,11 +39,6 @@ export const DEFAULT_GUILD_CONFIG = {
     verification: {
         enabled: false
     },
-    modApplication: {
-        enabled: false,
-        channelId: null,
-        questions: []
-    },
     rolePanel: {
         enabled: false,
         channelId: null,
