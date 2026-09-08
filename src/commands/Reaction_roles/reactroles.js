@@ -72,6 +72,31 @@ export default {
                         .setDescription('Fifth role to add')
                         .setRequired(false)
                 )
+                .addRoleOption(option =>
+                    option.setName('role6')
+                        .setDescription('Sixth role to add')
+                        .setRequired(false)
+                )
+                .addRoleOption(option =>
+                    option.setName('role7')
+                        .setDescription('Seventh role to add')
+                        .setRequired(false)
+                )
+                .addRoleOption(option =>
+                    option.setName('role8')
+                        .setDescription('Eighth role to add')
+                        .setRequired(false)
+                )
+                .addRoleOption(option =>
+                    option.setName('role9')
+                        .setDescription('Ninth role to add')
+                        .setRequired(false)
+                )
+                .addRoleOption(option =>
+                    option.setName('role10')
+                        .setDescription('Tenth role to add')
+                        .setRequired(false)
+                )
         )
         .addSubcommand(subcommand =>
             subcommand
@@ -196,7 +221,7 @@ async function handleSetup(interaction) {
     const roleValidationErrors = [];
     const seenRoleIds = new Set();
     
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 10; i++) {
         const role = interaction.options.getRole(`role${i}`);
         if (role) {
             if (seenRoleIds.has(role.id)) {
