@@ -142,13 +142,34 @@ async function deliverToGuild(client, guild, item, config) {
         return;
     }
 
+    const mentionRoleId = config.gameUpdates?.mentionRoleId;
+    const embed = buildUpdateEmbed(item);
+
     try {
-        await channel.send({ embeds: [buildUpdateEmbed(item)] });
+        const payload = { embeds: [embed] };
+        if (mentionRoleId) {
+            payload.content = `<@&${mentionRoleId}>`;
+        }
+        await channel.send(payload);
         logger.info('Posted Animal Company update', {
             guildId: guild.id,
             guid: item.guid,
+            mentionedRole: mentionRoleId || null,
         });
     } catch (error) {
+        if (mentionRoleId && error.code === 50013) {
+            try {
+                await channel.send({ embeds: [embed] });
+                logger.info('Posted Animal Company update without role mention', {
+                    guildId: guild.id,
+                    guid: item.guid,
+                    reason: 'role not mentionable',
+                });
+                return;
+            } catch (retryError) {
+                error = retryError;
+            }
+        }
         logger.warn('Failed to post Animal Company update', {
             guildId: guild.id,
             guid: item.guid,

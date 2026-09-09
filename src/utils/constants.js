@@ -47,7 +47,8 @@ export const DEFAULT_GUILD_CONFIG = {
     gameUpdates: {
         enabled: false,
         channelId: null,
-        lastGuid: null
+        lastGuid: null,
+        mentionRoleId: null
     }
 };
 

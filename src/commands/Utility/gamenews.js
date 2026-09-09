@@ -12,6 +12,7 @@ function normalizeGameUpdates(raw) {
         enabled: Boolean(raw?.enabled),
         channelId: raw?.channelId ?? null,
         lastGuid: raw?.lastGuid ?? null,
+        mentionRoleId: raw?.mentionRoleId ?? null,
     };
 }
 
@@ -29,7 +30,12 @@ export default {
                         .setName('channel')
                         .setDescription('The channel to receive update news')
                         .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-                        .setRequired(true)))
+                        .setRequired(true))
+                .addRoleOption(option =>
+                    option
+                        .setName('role')
+                        .setDescription('Role to ping when a big public update is posted')
+                        .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('status')
@@ -75,11 +81,15 @@ export default {
             const ensuresFreshFeed = !gameUpdates.lastGuid;
             const hasChangedChannel = gameUpdates.channelId !== channel.id;
 
+            const role = options.getRole('role');
+            const mentionRoleId = role ? role.id : (gameUpdates.mentionRoleId ?? null);
+
             await updateGuildConfig(client, guild.id, {
                 gameUpdates: {
                     enabled: true,
                     channelId: channel.id,
                     lastGuid: gameUpdates.lastGuid,
+                    mentionRoleId,
                 },
             });
 
@@ -94,14 +104,19 @@ export default {
                             enabled: true,
                             channelId: channel.id,
                             lastGuid: items[0].guid,
+                            mentionRoleId,
                         },
                     });
                 }
             }
 
+            const mentionLine = mentionRoleId
+                ? ` Le rôle <@&${mentionRoleId}> sera mentionné lors des grosses updates publiques.`
+                : '';
+
             const embed = createEmbed({
                 title: '✅ Game news enabled',
-                description: `Les mises à jour **Meta Quest** d'**Animal Company** seront postées dans ${channel} dès la prochaine news publiée.${latestLine ? `\n\n${latestLine}` : ''}`,
+                description: `Les mises à jour **Meta Quest** d'**Animal Company** seront postées dans ${channel} dès la prochaine news publiée.${mentionLine}${latestLine ? `\n\n${latestLine}` : ''}`,
                 color: 'success',
             });
 
@@ -126,6 +141,11 @@ export default {
                     {
                         name: 'Channel',
                         value: channel ? `${channel}` : 'Aucun',
+                        inline: true,
+                    },
+                    {
+                        name: 'Role mentionné',
+                        value: gameUpdates.mentionRoleId ? `<@&${gameUpdates.mentionRoleId}>` : 'Aucun',
                         inline: true,
                     },
                 ],
