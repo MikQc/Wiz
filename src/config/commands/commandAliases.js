@@ -47,11 +47,6 @@ export const commandAliases = {
     'inv': 'inventory',
     'items': 'inventory',
 
-    'user': 'userinfo',
-    'avatar': 'avatar',
-    'pfp': 'avatar',
-    'icon': 'avatar',
-
     'bd': 'birthday',
     'bday': 'birthday',
     'b': 'birthday',
@@ -85,12 +80,7 @@ export const commandAliases = {
 
     'calc': 'calculate',
     'math': 'calculate',
-    'weather': 'weather',
-    'todo': 'todo',
     'report': 'report',
-    'userinfo': 'userinfo',
-    'whois': 'userinfo',
-    'ui': 'userinfo',
 
     'serverstats': 'serverstats',
     'ss': 'serverstats',
