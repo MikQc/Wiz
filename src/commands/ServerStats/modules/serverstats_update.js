@@ -4,6 +4,7 @@ import { getServerCounters, saveServerCounters, updateCounter, getCounterEmoji, 
 import { logger } from '../../../utils/logger.js';
 
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
+import { sendSetupConfirmation } from '../../../utils/setupConfirm.js';
 import { replyUserError, ErrorTypes } from '../../../utils/errorHandler.js';
 export async function handleUpdate(interaction, client) {
     const guild = interaction.guild;
@@ -73,7 +74,7 @@ export async function handleUpdate(interaction, client) {
 
         const finalChannel = guild.channels.cache.get(updatedCounter.channelId);
 
-        await InteractionHelper.safeEditReply(interaction, {
+        await sendSetupConfirmation(interaction, {
             embeds: [successEmbed(`**Counter Updated Successfully!**\n\n**Counter ID:** \`${counterId}\`\n**Type Changed:** ${getCounterEmoji(oldType)} ${getCounterTypeLabel(oldType)} → ${getCounterEmoji(newType)} ${getCounterTypeLabel(newType)}\n\n**Current Settings:**\n**Type:** ${getCounterEmoji(updatedCounter.type)} ${getCounterTypeLabel(updatedCounter.type)}\n**Channel:** ${finalChannel}\n**Channel Name:** ${finalChannel.name}\n\nThe counter will automatically update every 15 minutes.`)]
         }).catch(logger.error);
 

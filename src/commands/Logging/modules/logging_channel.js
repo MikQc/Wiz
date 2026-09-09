@@ -2,6 +2,7 @@ import { PermissionsBitField, ChannelType } from 'discord.js';
 import { setLogChannel } from '../../../services/loggingService.js';
 import { successEmbed } from '../../../utils/embeds.js';
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
+import { sendSetupConfirmation } from '../../../utils/setupConfirm.js';
 import { logger } from '../../../utils/logger.js';
 
 import { replyUserError, ErrorTypes } from '../../../utils/errorHandler.js';
@@ -27,7 +28,7 @@ export default {
 
       if (disable) {
         await setLogChannel(client, interaction.guildId, destination, null);
-        return InteractionHelper.safeEditReply(interaction, {
+        return sendSetupConfirmation(interaction, {
           embeds: [successEmbed(
             'Channel Cleared',
             `The **${DESTINATION_LABELS[destination]}** channel has been removed.`,
@@ -46,7 +47,7 @@ export default {
 
       await setLogChannel(client, interaction.guildId, destination, channel.id);
 
-      return InteractionHelper.safeEditReply(interaction, {
+      return sendSetupConfirmation(interaction, {
         embeds: [successEmbed(
           'Channel Updated',
           `**${DESTINATION_LABELS[destination]}** logs will be sent to ${channel}.\nUse \`/logging dashboard\` to toggle event categories.`,

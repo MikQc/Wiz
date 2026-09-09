@@ -4,6 +4,7 @@ import { createEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/
 import { logger } from '../../utils/logger.js';
 import { createError, TitanBotError, ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { sendSetupConfirmation } from '../../utils/setupConfirm.js';
 import { createReactionRoleMessage, hasDangerousPermissions, getAllReactionRoleMessages, deleteReactionRoleMessage } from '../../services/reactionRoleService.js';
 import { logEvent, EVENT_TYPES } from '../../services/loggingService.js';
 import {
@@ -372,7 +373,7 @@ async function handleSetup(interaction) {
         logger.warn('Failed to log reaction role creation:', logError);
     }
 
-    await InteractionHelper.safeEditReply(interaction, {
+    await sendSetupConfirmation(interaction, {
         embeds: [successEmbed('Success', `✅ Reaction role panel created in ${channel}!\n\n${message.url}`)]
     });
 }

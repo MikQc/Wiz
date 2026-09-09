@@ -1,8 +1,9 @@
 import { getColor } from '../../config/bot.js';
-import { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder, MessageFlags } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { getWelcomeConfig, updateWelcomeConfig } from '../../utils/database.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { sendSetupConfirmation } from '../../utils/setupConfirm.js';
 import { getGuildConfig } from '../../services/config/guildConfig.js';
 import { ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
 
@@ -88,13 +89,12 @@ export default {
                 });
 
                 logger.info(`[Autorole] Set single auto-role to ${role.name} (${role.id}) in ${guild.name} by ${interaction.user.tag}`);
-                await InteractionHelper.safeEditReply(interaction, {
+                await sendSetupConfirmation(interaction, {
                     embeds: [createAutoroleInfoEmbed(
                         currentRoleId
                             ? `✅ Auto-role updated to ${role}. Only one auto-role is allowed.`
                             : `✅ Auto-role set to ${role}.`
-                    )],
-                    flags: MessageFlags.Ephemeral
+                    )]
                 });
             } catch (error) {
                 logger.error(`[Autorole] Failed to add role for guild ${guild.id}:`, error);
@@ -121,9 +121,8 @@ export default {
                 });
 
                 logger.info(`[Autorole] Removed role ${role.name} (${role.id}) from auto-assign in ${guild.name} by ${interaction.user.tag}`);
-                await InteractionHelper.safeEditReply(interaction, {
-                    embeds: [createAutoroleInfoEmbed(`✅ Removed ${role} from auto-assigned roles.`)],
-                    flags: MessageFlags.Ephemeral
+                await sendSetupConfirmation(interaction, {
+                    embeds: [createAutoroleInfoEmbed(`✅ Removed ${role} from auto-assigned roles.`)]
                 });
             } catch (error) {
                 logger.error(`[Autorole] Failed to remove role for guild ${guild.id}:`, error);
@@ -153,9 +152,8 @@ export default {
                 }
 
                 if (singleRoleIds.length === 0) {
-                    return InteractionHelper.safeEditReply(interaction, {
-                        embeds: [createAutoroleInfoEmbed(`ℹ️ No role is set to be auto-assigned.${conflictSummary ?`\n\n⚠️ Setup blockers:\n${conflictSummary}`: ''}`)],
-                        flags: MessageFlags.Ephemeral
+                    return sendSetupConfirmation(interaction, {
+                        embeds: [createAutoroleInfoEmbed(`ℹ️ No role is set to be auto-assigned.${conflictSummary ?`\n\n⚠️ Setup blockers:\n${conflictSummary}`: ''}`)]
                     });
                 }
 
@@ -181,9 +179,8 @@ export default {
                 }
 
                 if (validRoles.length === 0) {
-                    return InteractionHelper.safeEditReply(interaction, {
-                        embeds: [createAutoroleInfoEmbed(`ℹ️ No valid auto-role found. Any invalid role has been removed.${conflictSummary ?`\n\n⚠️ Setup blockers:\n${conflictSummary}`: ''}`)],
-                        flags: MessageFlags.Ephemeral
+                    return sendSetupConfirmation(interaction, {
+                        embeds: [createAutoroleInfoEmbed(`ℹ️ No valid auto-role found. Any invalid role has been removed.${conflictSummary ?`\n\n⚠️ Setup blockers:\n${conflictSummary}`: ''}`)]
                     });
                 }
 
@@ -193,9 +190,8 @@ export default {
                     .setDescription(`${validRoles[0]}${conflictSummary ?`\n\n⚠️ Setup blockers:\n${conflictSummary}`: ''}`)
                     .setFooter({ text: 'Only one auto-role can be configured.' });
 
-                await InteractionHelper.safeEditReply(interaction, {
-                    embeds: [embed],
-                    flags: MessageFlags.Ephemeral
+                await sendSetupConfirmation(interaction, {
+                    embeds: [embed]
                 });
 
             } catch (error) {

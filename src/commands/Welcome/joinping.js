@@ -4,6 +4,7 @@ import { getWelcomeConfig, updateWelcomeConfig } from '../../utils/database.js';
 import { formatWelcomeMessage, truncateForEmbedField } from '../../utils/welcome.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { sendSetupConfirmation } from '../../utils/setupConfirm.js';
 import { ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
 
 const DEFAULT_MESSAGE = 'Welcome {user} to {server}! Please head to <#{channel}> to complete verification.';
@@ -113,7 +114,7 @@ export default {
                     )
                     .setFooter({ text: 'The ping is temporary — it points members to this channel.' });
 
-                await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+                await sendSetupConfirmation(interaction, { embeds: [embed] });
             } catch (error) {
                 logger.error(`[JoinPing] Failed to setup for guild ${guild.id}:`, error);
                 await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while configuring the join ping. Please try again.' });
@@ -134,7 +135,7 @@ export default {
                     .setTitle('Join Ping Disabled')
                     .setDescription('New members will no longer be pinged on join.');
 
-                await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+                await sendSetupConfirmation(interaction, { embeds: [embed] });
             } catch (error) {
                 logger.error(`[JoinPing] Failed to disable for guild ${guild.id}:`, error);
                 await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while disabling the join ping.' });
@@ -166,7 +167,7 @@ export default {
 
             embed.setFooter({ text: 'Use /joinping setup to change, or /joinping disable to turn off.' });
 
-            await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+            await sendSetupConfirmation(interaction, { embeds: [embed] });
         }
     },
 };

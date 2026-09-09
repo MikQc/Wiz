@@ -3,6 +3,7 @@ import { getColor } from '../../config/bot.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { getGuildConfig, updateGuildConfig } from '../../services/config/guildConfig.js';
 import { fetchQuestUpdates } from '../../services/gameNewsService.js';
+import { sendSetupConfirmation } from '../../utils/setupConfirm.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
@@ -120,7 +121,7 @@ export default {
                 color: 'success',
             });
 
-            await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+            await sendSetupConfirmation(interaction, { embeds: [embed] });
             return;
         }
 
@@ -151,7 +152,7 @@ export default {
                 ],
             });
 
-            await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+            await sendSetupConfirmation(interaction, { embeds: [embed] });
             return;
         }
 
@@ -170,7 +171,7 @@ export default {
                 color: 'warning',
             });
 
-            await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+            await sendSetupConfirmation(interaction, { embeds: [embed] });
             return;
         }
     },

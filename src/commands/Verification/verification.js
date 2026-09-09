@@ -6,6 +6,7 @@ import { withErrorHandling, createError, ErrorTypes, replyUserError } from '../.
 import { removeVerification, verifyUser } from '../../services/verificationService.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { sendSetupConfirmation } from '../../utils/setupConfirm.js';
 import { getWelcomeConfig } from '../../utils/database.js';
 import verificationDashboard from './modules/verification_dashboard.js';
 
@@ -211,7 +212,7 @@ async function handleSetup(interaction, guild, client) {
 
     await setGuildConfig(client, guild.id, guildConfig);
 
-    await InteractionHelper.safeEditReply(interaction, {
+    await sendSetupConfirmation(interaction, {
         embeds: [successEmbed(
             'Verification System Updated',
             [

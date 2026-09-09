@@ -4,6 +4,7 @@ import { getServerCounters, saveServerCounters, updateCounter, getCounterBaseNam
 import { logger } from '../../../utils/logger.js';
 
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
+import { sendSetupConfirmation } from '../../../utils/setupConfirm.js';
 import { replyUserError, ErrorTypes } from '../../../utils/errorHandler.js';
 export async function handleCreate(interaction, client) {
     const guild = interaction.guild;
@@ -79,7 +80,7 @@ export async function handleCreate(interaction, client) {
             return;
         }
 
-        await InteractionHelper.safeEditReply(interaction, {
+        await sendSetupConfirmation(interaction, {
             embeds: [successEmbed(`**Counter Created Successfully!**\n\n**Type:** ${getCounterTypeLabel(type)}\n**Channel Type:** ${targetChannel.type === ChannelType.GuildVoice ? 'voice' : 'text'}\n**Category:** ${category}\n**Channel:** ${targetChannel}\n**Channel Name:** ${targetChannel.name}\n**Counter ID:** \`${newCounter.id}\`\n\nThe counter will automatically update every 15 minutes.\n\nUse \`/serverstats list\` to view all counters.`)]
         }).catch(logger.error);
 

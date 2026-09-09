@@ -3,6 +3,7 @@ import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } f
 import { getGuildConfig, updateGuildConfig } from '../../services/config/guildConfig.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { sendSetupConfirmation } from '../../utils/setupConfirm.js';
 import { ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
 
 const ROLE_PANEL_KEY = 'rolePanel';
@@ -188,7 +189,7 @@ export default {
                         { name: 'Status', value: '✅ Enabled', inline: true },
                     );
 
-                await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+                await sendSetupConfirmation(interaction, { embeds: [embed] });
             } catch (error) {
                 logger.error(`[RolePanel] Setup failed for guild ${guild.id}:`, error);
                 await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while creating the role panel.' });
@@ -220,7 +221,7 @@ export default {
                     .setTitle('🎭 Role Panel Disabled')
                     .setDescription('The role panel was removed and will no longer update.');
 
-                await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+                await sendSetupConfirmation(interaction, { embeds: [embed] });
             } catch (error) {
                 logger.error(`[RolePanel] Disable failed for guild ${guild.id}:`, error);
                 await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'An error occurred while disabling the role panel.' });
@@ -241,7 +242,7 @@ export default {
                 )
                 .setFooter({ text: 'Use /roles setup to create the panel, or /roles disable to turn it off.' });
 
-            await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+            await sendSetupConfirmation(interaction, { embeds: [embed] });
         }
     },
 };

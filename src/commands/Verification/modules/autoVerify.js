@@ -6,6 +6,7 @@ import { withErrorHandling, createError, ErrorTypes } from '../../../utils/error
 import { validateAutoVerifyCriteria } from '../../../services/verificationService.js';
 import { logger } from '../../../utils/logger.js';
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
+import { sendSetupConfirmation } from '../../../utils/setupConfirm.js';
 import { getWelcomeConfig } from '../../../utils/database.js';
 import autoVerifyDashboard from './autoVerifyDashboard.js';
 
@@ -176,7 +177,7 @@ async function handleSetup(interaction, guild, client) {
             roleId: targetRole.id
         });
 
-        await InteractionHelper.safeEditReply(interaction, {
+        await sendSetupConfirmation(interaction, {
             embeds: [successEmbed(
                 "Auto-Verification Configured",
                 `Automatic verification has been configured!\n\n**Role:** ${targetRole}\n**Criteria:** ${criteriaDescription}\n\nUsers who meet these criteria will receive this role when they join the server.`
