@@ -2,7 +2,7 @@ import { SlashCommandBuilder, PermissionFlagsBits, ChannelType } from 'discord.j
 import { getColor } from '../../config/bot.js';
 import { createEmbed } from '../../utils/embeds.js';
 import { getGuildConfig, updateGuildConfig } from '../../services/config/guildConfig.js';
-import { fetchSteamNews } from '../../services/gameNewsService.js';
+import { fetchQuestUpdates } from '../../services/gameNewsService.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
@@ -85,7 +85,7 @@ export default {
 
             let latestLine = '';
             if (ensuresFreshFeed || hasChangedChannel) {
-                const items = await fetchSteamNews();
+                const items = await fetchQuestUpdates();
                 if (items.length > 0) {
                     latestLine = `La dernière news postée dans ${channel} sera **${items[0].title}**.`;
                     gameUpdates.lastGuid = items[0].guid;
@@ -101,7 +101,7 @@ export default {
 
             const embed = createEmbed({
                 title: '✅ Game news enabled',
-                description: `Les mises à jour d'**Animal Company** seront postées dans ${channel} dès la prochaine news publiée.${latestLine ? `\n\n${latestLine}` : ''}`,
+                description: `Les mises à jour **Meta Quest** d'**Animal Company** seront postées dans ${channel} dès la prochaine news publiée.${latestLine ? `\n\n${latestLine}` : ''}`,
                 color: 'success',
             });
 

@@ -1,17 +1,18 @@
 // gameNewsService.js
-// Polls the Steam News RSS feed for Animal Company (app 4551040) and posts new
-// announcements to the channel configured per guild via /gamenews.
+// Scrapes Animal Company Meta Quest updates from the AltLab page (a mirror of
+// the Meta Quest store announcements) and posts new updates to the channel
+// configured per guild via /gamenews.
 
 import { logger } from '../utils/logger.js';
 import { createEmbed } from '../utils/embeds.js';
 import { getGuildConfig, updateGuildConfig } from './config/guildConfig.js';
 
-const STEAM_NEWS_FEED_URL = 'https://store.steampowered.com/feeds/news/app/4551040/?cc=us&l=english&snr=1_2108_9';
+const QUEST_UPDATES_URL = 'https://www.altlabvr.com/animal-company';
 const POLL_INTERVAL_MS = 15 * 60 * 1000;
 const MAX_ITEMS_PER_POLL = 3;
 const MAX_ITEM_AGE_MS = 3 * 24 * 60 * 60 * 1000;
 const MAX_FETCH_TIMEOUT_MS = 20000;
-const STEAM_HEADER_IMAGE = 'https://cdn.akamai.steamstatic.com/steam/apps/4551040/header.jpg';
+const GAME_HEADER_IMAGE = 'https://cdn.akamai.steamstatic.com/steam/apps/4551040/header.jpg';
 
 let pollTimer = null;
 let pollingInFlight = false;
@@ -36,48 +37,59 @@ function htmlToText(input = '') {
         .trim();
 }
 
-function extractFirstImage(input = '') {
-    const match = String(input).match(/<img[^>]*src=&quot;([^&]+)&quot;/);
-    return match ? decodeHtmlEntities(match[1]) : null;
-}
-
-export async function fetchSteamNews(feedUrl = STEAM_NEWS_FEED_URL) {
+export async function fetchQuestUpdates(pageUrl = QUEST_UPDATES_URL) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), MAX_FETCH_TIMEOUT_MS);
 
     try {
-        const response = await fetch(feedUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TitanBot/2.0)' },
+        const response = await fetch(pageUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9',
+            },
             signal: controller.signal,
         });
 
         if (!response.ok) {
-            throw new Error(`Steam RSS returned status ${response.status}`);
+            throw new Error(`AltLab page returned status ${response.status}`);
         }
 
-        const xml = await response.text();
+        const html = await response.text();
+        const updatesHeading = html.indexOf('>Updates</h2>');
+        if (updatesHeading === -1) {
+            throw new Error('Updates section not found on AltLab page');
+        }
+
+        const sectionStart = html.lastIndexOf('<section', updatesHeading);
+        const sectionEnd = html.indexOf('</section>', updatesHeading);
+        if (sectionStart === -1 || sectionEnd === -1) {
+            throw new Error('Could not isolate the Updates section');
+        }
+
+        const section = html.slice(sectionStart, sectionEnd + '</section>'.length);
+        const articleMatches = section.match(/<article class="c-review-tile[^"]*">[\s\S]*?<\/article>/g) || [];
         const items = [];
 
-        const itemMatches = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
+        for (const article of articleMatches) {
+            const rawTitle = (article.match(/c-review-tile__heading[^>]*>([\s\S]*?)<\/h3>/) || [])[1];
+            const rawDate = (article.match(/c-review-tile__date">([\s\S]*?)<\/p>/) || [])[1];
+            const rawDescription = (article.match(/text text--small text--lh-2">([\s\S]*?)<\/p>/) || [])[1];
 
-        for (const rawItem of itemMatches) {
-            const guid = (rawItem.match(/<guid[^>]*>([\s\S]*?)<\/guid>/) || [])[1];
-            const title = (rawItem.match(/<title>([\s\S]*?)<\/title>/) || [])[1];
-            const link = (rawItem.match(/<link>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/link>/) || [])[1];
-            const pubDate = (rawItem.match(/<pubDate>([\s\S]*?)<\/pubDate>/) || [])[1];
-            const description = (rawItem.match(/<description>([\s\S]*?)<\/description>/) || [])[1];
+            const title = rawTitle ? decodeHtmlEntities(rawTitle).trim() : '';
+            const dateLabel = rawDate ? rawDate.trim() : '';
+            const pubDate = dateLabel ? new Date(Date.parse(dateLabel)) : null;
 
-            if (!guid || !title) {
+            if (!title || !dateLabel) {
                 continue;
             }
 
             items.push({
-                guid: guid.trim(),
-                title: decodeHtmlEntities(title).trim(),
-                link: (link || '').trim(),
-                pubDate: pubDate ? new Date(pubDate) : null,
-                description: description || '',
-                image: extractFirstImage(description || ''),
+                guid: `${title} • ${dateLabel}`,
+                title,
+                link: pageUrl,
+                pubDate,
+                dateLabel,
+                description: htmlToText(rawDescription || ''),
             });
         }
 
@@ -85,8 +97,8 @@ export async function fetchSteamNews(feedUrl = STEAM_NEWS_FEED_URL) {
             (b.pubDate?.getTime() || 0) - (a.pubDate?.getTime() || 0)
         );
     } catch (error) {
-        logger.warn('Failed to fetch Steam news feed', {
-            feedUrl,
+        logger.warn('Failed to fetch Meta Quest updates from AltLab', {
+            pageUrl,
             error: error.message,
         });
         return [];
@@ -96,24 +108,24 @@ export async function fetchSteamNews(feedUrl = STEAM_NEWS_FEED_URL) {
 }
 
 function buildUpdateEmbed(item) {
-    const cleanText = htmlToText(item.description);
+    const cleanText = item.description || '';
     const excerpt = cleanText.length > 300 ? `${cleanText.slice(0, 297)}…` : cleanText;
 
     const parts = [];
-    if (item.pubDate) {
-        parts.push(`📅 ${item.pubDate.toUTCString()}`);
+    if (item.dateLabel) {
+        parts.push(`📅 ${item.dateLabel}`);
     }
     if (excerpt) {
         parts.push(excerpt);
     }
-    parts.push(`[Voir la news complète](${item.link})`);
+    parts.push(`[Voir les annonces Meta Quest](${item.link})`);
 
     return createEmbed({
         title: `🐾 Animal Company — ${item.title}`,
         description: parts.join('\n\n'),
         color: 'success',
         url: item.link,
-        thumbnail: item.image || STEAM_HEADER_IMAGE,
+        thumbnail: GAME_HEADER_IMAGE,
     });
 }
 
@@ -153,7 +165,7 @@ export async function pollAnimalCompanyUpdates(client) {
     pollingInFlight = true;
 
     try {
-        const items = await fetchSteamNews();
+        const items = await fetchQuestUpdates();
 
         if (items.length === 0) {
             return;
@@ -242,7 +254,7 @@ export function startGameNewsPoller(client) {
 }
 
 export default {
-    fetchSteamNews,
+    fetchQuestUpdates,
     pollAnimalCompanyUpdates,
     startGameNewsPoller,
 };
