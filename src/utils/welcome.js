@@ -73,3 +73,33 @@ export function getDefaultWelcomeMessage() {
 export function getDefaultGoodbyeMessage() {
     return DEFAULT_TEMPLATES.goodbye;
 }
+
+export function formatAccountAge(createdAt) {
+    if (!createdAt) return 'Unknown';
+
+    const timestamp = createdAt instanceof Date ? createdAt.getTime() : Number(createdAt);
+    if (!timestamp || Number.isNaN(timestamp)) {
+        return 'Unknown';
+    }
+
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    const elapsedMs = Math.max(0, Date.now() - timestamp);
+    const totalDays = Math.floor(elapsedMs / MS_PER_DAY);
+
+    if (totalDays < 1) {
+        return 'moins d\'un jour';
+    }
+
+    const totalYears = Math.floor(totalDays / 365);
+    const remainingDays = totalDays % 365;
+
+    const parts = [];
+    if (totalYears > 0) {
+        parts.push(`${totalYears} an${totalYears > 1 ? 's' : ''}`);
+    }
+    if (remainingDays > 0) {
+        parts.push(`${remainingDays} jour${remainingDays > 1 ? 's' : ''}`);
+    }
+
+    return parts.join(' et ');
+}
