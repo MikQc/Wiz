@@ -1,11 +1,10 @@
-import { Events } from "discord.js";
+﻿import { Events } from "discord.js";
 import { logger, startupLog } from "../utils/logger.js";
 import config from "../config/application.js";
 import { reconcileReactionRoleMessages } from "../services/reactionRoleService.js";
 import { reconcileTicketPanels, reconcileVerificationPanels, reconcileReactionRolePanelHealth } from "../services/panelHealthService.js";
 import { reconcileLevelRoles } from "../services/leveling/levelRoleSyncService.js";
 import { initRiffyAfterReady } from "../services/music/riffySetup.js";
-import { startGameNewsPoller } from "../services/gameNewsService.js";
 
 export default {
   name: Events.ClientReady,
@@ -22,8 +21,6 @@ export default {
       if (client.config?.features?.music) {
         initRiffyAfterReady(client);
       }
-
-      startGameNewsPoller(client);
 
       const reconciliationSummary = await reconcileReactionRoleMessages(client);
       startupLog(
