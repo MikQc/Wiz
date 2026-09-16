@@ -161,7 +161,10 @@ export async function getLevelingConfig(client, guildId) {
       blacklistedUsers: [],
       roleRewards: {},
       announceLevelUp: true,
-      xpMultiplier: 1
+      xpMultiplier: 1,
+      voiceXpEnabled: true,
+      voiceXpPerMinute: 5,
+      ignoredVoiceChannels: []
     };
   } catch (error) {
     logger.error(`Error getting leveling config for guild ${guildId}:`, error);
@@ -176,7 +179,10 @@ export async function getLevelingConfig(client, guildId) {
       blacklistedUsers: [],
       roleRewards: {},
       announceLevelUp: true,
-      xpMultiplier: 1
+      xpMultiplier: 1,
+      voiceXpEnabled: true,
+      voiceXpPerMinute: 5,
+      ignoredVoiceChannels: []
     };
   }
 }
