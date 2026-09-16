@@ -134,6 +134,10 @@ export class ResponseCoordinator {
       return this.sendPrefixPayload(payload);
     }
 
+    if (!(payload?.flags & MessageFlags.Ephemeral)) {
+      payload.flags = (payload.flags || 0) | MessageFlags.Ephemeral;
+    }
+
     await this.interaction.reply(payload);
     return null;
   }
