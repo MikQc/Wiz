@@ -18,6 +18,7 @@ const configuredTables = {
     verification_audit: 'verification_audit',
     temp_data: 'temp_data',
     cache_data: 'cache_data',
+    channel_locks: 'channel_locks',
 };
 
 const allowedTableIdentifiers = new Set([
@@ -37,6 +38,7 @@ const allowedTableIdentifiers = new Set([
     'verification_audit',
     'temp_data',
     'cache_data',
+    'channel_locks',
 ]);
 
 const validatedTables = Object.fromEntries(

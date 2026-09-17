@@ -173,6 +173,18 @@ export const tableStatements = [
         expires_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
+
+    `CREATE TABLE IF NOT EXISTS ${t.channel_locks} (
+        guild_id VARCHAR(20),
+        channel_id VARCHAR(20),
+        ends_at TIMESTAMP NOT NULL,
+        reason TEXT,
+        executor_id VARCHAR(20),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (guild_id, channel_id),
+        FOREIGN KEY (guild_id) REFERENCES ${t.guilds}(id) ON DELETE CASCADE
+    )`,
 ];
 
 export const indexStatements = [
@@ -194,6 +206,8 @@ export const indexStatements = [
     `CREATE INDEX IF NOT EXISTS idx_verification_audit_created_at ON ${t.verification_audit}(created_at)`,
     `CREATE INDEX IF NOT EXISTS idx_temp_data_expires_at ON ${t.temp_data}(expires_at)`,
     `CREATE INDEX IF NOT EXISTS idx_cache_data_expires_at ON ${t.cache_data}(expires_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_channel_locks_ends_at ON ${t.channel_locks}(ends_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_channel_locks_guild_id ON ${t.channel_locks}(guild_id)`,
 ];
 
 export const UPDATE_TIMESTAMP_FUNCTION = `
