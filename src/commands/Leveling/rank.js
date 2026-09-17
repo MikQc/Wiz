@@ -16,7 +16,6 @@ export default {
     )
     .setDMPermission(false),
   category: 'Leveling',
-  ownerOnly: true,
 
   async execute(interaction, config, client) {
     await InteractionHelper.safeDefer(interaction);
