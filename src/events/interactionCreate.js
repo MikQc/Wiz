@@ -3,6 +3,7 @@ import { logger } from '../utils/logger.js';
 import { getGuildConfig } from '../services/config/guildConfig.js';
 import {
   getBotMessage,
+  canAccessOwnerOnlyCommand,
   isBotOwner,
   isCommandCategoryEnabled,
   isMaintenanceMode,
@@ -89,6 +90,15 @@ export default {
                 'Bot is in maintenance mode',
                 ErrorTypes.CONFIGURATION,
                 getBotMessage('maintenanceMode'),
+                withTraceContext({ commandName: interaction.commandName }, interactionTraceContext)
+              );
+            }
+
+            if (command.ownerOnly && !canAccessOwnerOnlyCommand(interaction.user.id, interaction.guild)) {
+              throw createError(
+                `Command ${interaction.commandName} is owner only`,
+                ErrorTypes.PERMISSION,
+                getBotMessage('noPermission'),
                 withTraceContext({ commandName: interaction.commandName }, interactionTraceContext)
               );
             }

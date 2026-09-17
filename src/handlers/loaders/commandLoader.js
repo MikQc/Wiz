@@ -141,6 +141,9 @@ function collectCommandPayloads(client) {
 
         registeredNames.add(commandName);
         const commandJson = command.data.toJSON();
+        if (command.ownerOnly && commandJson.default_member_permissions === undefined) {
+            commandJson.default_member_permissions = '0';
+        }
         commands.push(commandJson);
         totalSubcommands += getSubcommandInfo(commandJson).length;
 

@@ -572,6 +572,18 @@ export function isBotOwner(userId) {
   return getBotOwners().includes(String(userId));
 }
 
+export function canAccessOwnerOnlyCommand(userId, guild) {
+  if (isBotOwner(userId)) {
+    return true;
+  }
+
+  if (guild?.ownerId && String(guild.ownerId) === String(userId)) {
+    return true;
+  }
+
+  return false;
+}
+
 export function isMaintenanceMode() {
   return botConfig.commands?.maintenanceMode === true;
 }

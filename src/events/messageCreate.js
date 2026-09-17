@@ -8,7 +8,7 @@ import { supportsPrefixExecution, executePrefixCommand, resolvePrefixAccessKey }
 import { resolveCommandAlias, resolveSubcommandAlias } from '../config/commands/commandAliases.js';
 import { getPrefixRestriction } from '../config/commands/prefixRestrictions.js';
 import { getGuildConfig } from '../services/config/guildConfig.js';
-import { getCommandPrefix, getBotMessage, isBotOwner, isCommandCategoryEnabled, isMaintenanceMode } from '../config/bot.js';
+import { getCommandPrefix, getBotMessage, canAccessOwnerOnlyCommand, isBotOwner, isCommandCategoryEnabled, isMaintenanceMode } from '../config/bot.js';
 import { enforceAbuseProtection, formatCooldownDuration } from '../utils/abuseProtection.js';
 import { createEmbed } from '../utils/embeds.js';
 import { isCommandEnabled } from '../services/commandAccessService.js';
@@ -81,6 +81,10 @@ async function handlePrefixCommand(message, client) {
           color: 'warning',
         })],
       }).catch(() => {});
+      return;
+    }
+
+    if (command.ownerOnly && !canAccessOwnerOnlyCommand(message.author.id, message.guild)) {
       return;
     }
 
