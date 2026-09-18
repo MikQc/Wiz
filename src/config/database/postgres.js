@@ -19,6 +19,7 @@ const configuredTables = {
     temp_data: 'temp_data',
     cache_data: 'cache_data',
     channel_locks: 'channel_locks',
+    pending_mods: 'pending_mods',
 };
 
 const allowedTableIdentifiers = new Set([
@@ -39,6 +40,7 @@ const allowedTableIdentifiers = new Set([
     'temp_data',
     'cache_data',
     'channel_locks',
+    'pending_mods',
 ]);
 
 const validatedTables = Object.fromEntries(
