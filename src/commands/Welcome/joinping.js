@@ -8,7 +8,7 @@ import { sendSetupConfirmation } from '../../utils/setupConfirm.js';
 import { ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
 
 const DEFAULT_MESSAGE = 'Welcome {user} to {server}! Please head to <#{channel}> to complete verification.';
-const DEFAULT_DELETE_AFTER_MS = 60000;
+const DEFAULT_DELETE_AFTER_SECONDS = 10;
 const MAX_DELETE_AFTER_SECONDS = 300;
 
 function normalizeJoinPing(raw) {
@@ -16,7 +16,7 @@ function normalizeJoinPing(raw) {
         enabled: Boolean(raw?.enabled),
         channelId: raw?.channelId ?? null,
         message: raw?.message ?? DEFAULT_MESSAGE,
-        deleteAfterMs: Number(raw?.deleteAfterMs ?? DEFAULT_DELETE_AFTER_MS),
+        deleteAfterMs: Number(raw?.deleteAfterMs ?? DEFAULT_DELETE_AFTER_SECONDS * 1000),
     };
 }
 
@@ -40,7 +40,7 @@ export default {
                         .setRequired(false))
                 .addIntegerOption(option =>
                     option.setName('delete_after')
-                        .setDescription(`Seconds before the ping is deleted (default: 60, max: ${MAX_DELETE_AFTER_SECONDS})`)
+                        .setDescription(`Seconds before the ping is deleted (default: 10, max: ${MAX_DELETE_AFTER_SECONDS})`)
                         .setRequired(false)
                         .setMinValue(5)
                         .setMaxValue(MAX_DELETE_AFTER_SECONDS)))
@@ -79,7 +79,7 @@ export default {
             const pingMessage = (message ?? DEFAULT_MESSAGE).trim();
             const deleteAfterMs = deleteAfterSeconds
                 ? deleteAfterSeconds * 1000
-                : DEFAULT_DELETE_AFTER_MS;
+                : DEFAULT_DELETE_AFTER_SECONDS * 1000;
 
             const me = guild.members.me;
             const permissions = channel.permissionsFor(me);

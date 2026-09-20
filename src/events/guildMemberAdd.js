@@ -218,30 +218,42 @@ async function handleJoinPing(member, guild, joinPingConfig) {
             return;
         }
 
+        const user = member.user;
+
         const messageText = (joinPingConfig.message || '').trim()
             || `Welcome {user} to {server}! Please head to <#${channel.id}> to complete verification.`;
 
         const content = formatWelcomeMessage(messageText, { user, guild, channel });
 
-        const dieAfterMs = Math.max(5000, Number(joinPingConfig.deleteAfterMs || 60000));
+        const delayBeforePingMs = 30000;
+        const dieAfterMs = Math.max(5000, Number(joinPingConfig.deleteAfterMs || 10000));
 
-        const sent = await channel.send({ content });
-        logger.info('JoinPing sent', {
-            guildId: guild.id,
-            userId: user.id,
-            channelId: channel.id,
-            deleteAfterMs: dieAfterMs
-        });
-
-        const timeout = setTimeout(async () => {
+        const sendTimer = setTimeout(async () => {
             try {
-                await sent.delete();
+                const sent = await channel.send({ content });
+                logger.info('JoinPing sent', {
+                    guildId: guild.id,
+                    userId: user.id,
+                    channelId: channel.id,
+                    deleteAfterMs: dieAfterMs
+                });
+
+                const deleteTimer = setTimeout(async () => {
+                    try {
+                        await sent.delete();
+                    } catch (error) {
+                        logger.debug('JoinPing message already gone or cannot delete:', error.message);
+                    }
+                }, dieAfterMs);
+                if (typeof deleteTimer.unref === 'function') {
+                    deleteTimer.unref();
+                }
             } catch (error) {
-                logger.debug('JoinPing message already gone or cannot delete:', error.message);
+                logger.error('Error sending join ping:', error);
             }
-        }, dieAfterMs);
-        if (typeof timeout.unref === 'function') {
-            timeout.unref();
+        }, delayBeforePingMs);
+        if (typeof sendTimer.unref === 'function') {
+            sendTimer.unref();
         }
     } catch (error) {
         logger.error('Error in handleJoinPing:', error);
