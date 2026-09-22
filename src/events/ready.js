@@ -5,6 +5,7 @@ import { reconcileReactionRoleMessages } from "../services/reactionRoleService.j
 import { reconcileTicketPanels, reconcileVerificationPanels, reconcileReactionRolePanelHealth } from "../services/panelHealthService.js";
 import { reconcileLevelRoles } from "../services/leveling/levelRoleSyncService.js";
 import { startVoiceXpLoop } from "../services/leveling/voiceXpService.js";
+import { startAutoBackup } from "../services/backupScheduler.js";
 import { initRiffyAfterReady } from "../services/music/riffySetup.js";
 
 export default {
@@ -24,6 +25,8 @@ export default {
       }
 
       startVoiceXpLoop(client);
+
+      startAutoBackup(client);
 
       const reconciliationSummary = await reconcileReactionRoleMessages(client);
       startupLog(
