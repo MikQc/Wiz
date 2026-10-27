@@ -15,6 +15,9 @@ export default {
   async execute(member) {
     try {
         const { guild, user } = member;
+        try {
+          await guild.fetch().catch(() => null);
+        } catch {}
         
         const config = await getGuildConfig(member.client, guild.id);
         
