@@ -2,54 +2,38 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { successEmbed, warningEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
-import { getPendingMods, removePendingMod } from '../../services/pendingModService.js';
 import { getColor } from '../../config/bot.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('modapp')
-    .setDescription('Accepter ou refuser une demande pour devenir modérateur.')
+    .setDescription('Accepter ou refuser une candidature pour devenir modérateur.')
     .setDefaultMemberPermissions(0)
     .addSubcommand(subcommand =>
       subcommand
         .setName('accept')
-        .setDescription('Accepter la demande de modérateur en attente.')
-        .addIntegerOption(option =>
-          option
-            .setName('numero')
-            .setDescription('Numéro dans la liste /modolist')
-            .setRequired(true)
-            .setMinValue(1)
-        )
+        .setDescription('Accepter la candidature.')
         .addUserOption(option =>
           option
             .setName('membre')
-            .setDescription('Membre à qui envoyer le message de confirmation')
+            .setDescription('Membre à qui envoyer le message')
             .setRequired(true)
         )
         .addStringOption(option =>
           option
             .setName('raison')
-            .setDescription('Raison facultative à ajouter dans le MP')
+            .setDescription('Message facultatif à ajouter dans le MP')
             .setRequired(false)
         )
     )
     .addSubcommand(subcommand =>
       subcommand
         .setName('deny')
-        .setDescription('Refuser la demande de modérateur en attente.')
-        .addIntegerOption(option =>
-          option
-            .setName('numero')
-            .setDescription('Numéro dans la liste /modolist')
-            .setRequired(true)
-            .setMinValue(1)
-        )
+        .setDescription('Refuser la candidature.')
         .addUserOption(option =>
           option
             .setName('membre')
-            .setDescription('Membre à qui envoyer le message de refus')
+            .setDescription('Membre à qui envoyer le message')
             .setRequired(true)
         )
         .addStringOption(option =>
@@ -74,27 +58,15 @@ export default {
     }
 
     const subcommand = interaction.options.getSubcommand();
-    const entryNumber = interaction.options.getInteger('numero');
     const targetUser = interaction.options.getUser('membre');
     const reason = interaction.options.getString('raison');
-
-    const pendingMods = await getPendingMods(client, interaction.guildId);
-    const entry = pendingMods.find((e) => Number(e.entryNumber) === Number(entryNumber));
-
-    if (!entry) {
-      return await replyUserError(interaction, {
-        type: ErrorTypes.USER_INPUT,
-        message: `Aucune entrée trouvée pour le numéro **${entryNumber}** dans la liste des modérateurs en attente.\n\nVérifie avec \`/modolist\`.`,
-      });
-    }
-
     const guildName = interaction.guild?.name || 'le serveur';
 
     if (subcommand === 'accept') {
       const embed = new EmbedBuilder()
         .setColor(getColor('success'))
         .setTitle('✅ Candidature acceptée')
-        .setDescription(`Félicitations !\n\nTa demande pour devenir modérateur sur **${guildName}** a été **acceptée**.`)
+        .setDescription(`Félicitations !\n\nTa candidature pour devenir modérateur sur **${guildName}** a été **acceptée**.`)
         .addFields(
           { name: 'Serveur', value: guildName, inline: true },
           { name: 'Traité par', value: interaction.user.tag, inline: true }
@@ -105,7 +77,7 @@ export default {
         embed.addFields({ name: 'Message du staff', value: reason });
       }
 
-      embed.setFooter({ text: 'Bonne chance dans ton nouveau rôle !' });
+      embed.setFooter({ text: 'Félicitations et bienvenue dans l\'équipe !' });
 
       try {
         await targetUser.send({ embeds: [embed] });
@@ -114,29 +86,25 @@ export default {
         await InteractionHelper.safeEditReply(interaction, {
           embeds: [
             warningEmbed(
-              '⚠️ Message non envoyé',
-              `La candidature du numéro **${entryNumber}** (${entry.name}) a été retirée de la liste, mais je n'ai **pas pu envoyer de MP** à ${targetUser}.\n\nIl a probablement ses MP fermés.`
+              '⚠️ MP non envoyé',
+              `Le message d'acceptation n'a **pas pu être envoyé** à ${targetUser}.\n\nIl a probablement ses messages privés fermés.`
             ),
           ],
         });
-        await removePendingMod(client, interaction.guildId, entryNumber);
         return;
       }
-
-      await removePendingMod(client, interaction.guildId, entryNumber);
 
       await InteractionHelper.safeEditReply(interaction, {
         embeds: [
           successEmbed(
-            '✅ Demande acceptée',
-            `**${entry.name}** (numéro **${entryNumber}**) a été retiré de la liste des modérateurs en attente.\n\nUn MP de confirmation lui a été envoyé avec succès.`
+            '✅ Accepté',
+            `Le message d'acceptation a été envoyé en MP à ${targetUser} avec succès.`
           ),
         ],
       });
 
-      logger.info('Modapp accepted', {
+      logger.info('Modapp accepted (standalone)', {
         guildId: interaction.guildId,
-        entryNumber,
         targetUserId: targetUser.id,
         acceptedBy: interaction.user.id,
       });
@@ -148,7 +116,7 @@ export default {
       const embed = new EmbedBuilder()
         .setColor(getColor('error'))
         .setTitle('❌ Candidature refusée')
-        .setDescription(`Ta demande pour devenir modérateur sur **${guildName}** a été **refusée**.`)
+        .setDescription(`Ta candidature pour devenir modérateur sur **${guildName}** a été **refusée**.`)
         .addFields(
           { name: 'Serveur', value: guildName, inline: true },
           { name: 'Traité par', value: interaction.user.tag, inline: true }
@@ -168,29 +136,25 @@ export default {
         await InteractionHelper.safeEditReply(interaction, {
           embeds: [
             warningEmbed(
-              '⚠️ Message non envoyé',
-              `La candidature du numéro **${entryNumber}** (${entry.name}) a été retirée de la liste, mais je n'ai **pas pu envoyer de MP** à ${targetUser}.\n\nIl a probablement ses MP fermés.`
+              '⚠️ MP non envoyé',
+              `Le message de refus n'a **pas pu être envoyé** à ${targetUser}.\n\nIl a probablement ses messages privés fermés.`
             ),
           ],
         });
-        await removePendingMod(client, interaction.guildId, entryNumber);
         return;
       }
-
-      await removePendingMod(client, interaction.guildId, entryNumber);
 
       await InteractionHelper.safeEditReply(interaction, {
         embeds: [
           successEmbed(
-            '❌ Demande refusée',
-            `**${entry.name}** (numéro **${entryNumber}**) a été retiré de la liste des modérateurs en attente.\n\nUn MP lui indiquant le refus lui a été envoyé avec succès.`
+            '❌ Refusé',
+            `Le message de refus a été envoyé en MP à ${targetUser} avec succès.`
           ),
         ],
       });
 
-      logger.info('Modapp denied', {
+      logger.info('Modapp denied (standalone)', {
         guildId: interaction.guildId,
-        entryNumber,
         targetUserId: targetUser.id,
         deniedBy: interaction.user.id,
       });
